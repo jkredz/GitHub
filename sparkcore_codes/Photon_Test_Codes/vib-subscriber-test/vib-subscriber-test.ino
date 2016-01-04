@@ -1,10 +1,11 @@
 // -----------------------------------------
-// Publish and Subscribe
+// Subscribe and Vibrate Code
 /* -----------------------------------------
 
-We are going to Spark.publish a public event to the cloud.
-That means that everyone can see you event and anyone can subscribe to it.
-You and your buddy will both publish an event, and listen for each others events.
+Subscribe to particle.
+Incoming Data (indoor temperature) received saved as "time"
+Indoor temperature is mapped from 70-86F to 500 ms to 2000ms
+If temperature is > 80F, then vibrate and delay for mapped time
 
 ------------------------------------------*/
 
