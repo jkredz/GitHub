@@ -138,8 +138,8 @@ void sendDataToSerial(char symbol, int data ){
 
 
 void ledFadeToBeat(){
-	fadeRate -= 50;                         //  set LED fade value
-	fadeRate = constrain(fadeRate,0,255);   //  keep LED fade value from going into negative numbers!
+	fadeRate -= 90;                         //  set LED fade value
+	fadeRate = constrain(fadeRate,40,255);   //  keep LED fade value from going into negative numbers!
 	analogWrite(fadePin,fadeRate);          //  fade LED
   Serial.println(fadeRate);
 }
