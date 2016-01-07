@@ -29,7 +29,6 @@ volatile boolean QS = false;        // becomes true when Arduoino finds a beat.
 int pulsePin = A2;				// Pulse Sensor purple wire connected to analog pin 0
 int blinkPin = D7;				// pin to blink led at each beat
 int fadePin = D3;				// pin to do fancy classy fading blink at each beat
-int fadeRate = 0;				// used to fade LED on with PWM on fadePin
 
 void interruptSetup();
 void pulseISR(void);

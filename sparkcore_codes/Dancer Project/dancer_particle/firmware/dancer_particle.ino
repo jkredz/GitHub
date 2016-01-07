@@ -33,6 +33,7 @@ This update fixes the firstBeat and secondBeat flag usage so that realistic BPM 
 */
 
 #include "SparkIntervalTimer.h"
+#include <math.h>
 
 void interruptSetup(void);
 void serialOutput();
@@ -40,7 +41,6 @@ void serialOutputWhenBeatHappens();
 void sendDataToSerial(char symbol, int data );
 void ledFadeToBeat();
 void arduinoSerialMonitorVisual(char symbol, int data );
-
 
 extern int pulsePin;
 extern int blinkPin;
@@ -51,24 +51,45 @@ extern volatile boolean Pulse;
 extern volatile boolean QS;
 
 // Regards Serial OutPut  -- Set This Up to your needs
-static boolean serialVisual = true;   // Set to 'false' by Default.  Re-set to 'true' to see Arduino Serial Monitor ASCII Visual Pulse
+static boolean serialVisual = false;   // Set to 'false' by Default.  Re-set to 'true' to see Arduino Serial Monitor ASCII Visual Pulse
 
 
 extern int fadePin;
-extern int fadeRate;
 
+//Server configuration setup
+TCPServer server = TCPServer(23);
+TCPClient client;
+char inData[128];
+char inChar;
+char outData[128];
+byte i= 0;
+
+//Function that sends commands to clients
+void out(const char *s) {
+  server.write( (const uint8_t*)s, strlen(s) );
+}
+
+//Vib Function Fade Params
+double x = 0.00;
+double fadeRate = .05;
 
 
 void setup(){
+	//Start server
+  server.begin();										// start listening for clients
+  Serial.begin(115200);								// Make sure your Serial Terminal app is closed before powering your device
+  while(!Serial.available()) Particle.process();  // Now open your Serial Terminal, and hit any key to continue!
+  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.subnetMask());
+  Serial.println(WiFi.gatewayIP());
+  Serial.println(WiFi.SSID());
+
+	//Pin Seteup
 	pinMode(blinkPin,OUTPUT);         // pin that will blink to your heartbeat!
 	pinMode(fadePin,OUTPUT);          // pin that will fade to your heartbeat!
-	Serial.begin(115200);             // we agree to talk fast!
 	interruptSetup();                 // sets up to read Pulse Sensor signal every 2mS
 }
 
-
-
-//  Where the Magic Happens
 void loop(){
 	serialOutput();
 	//Serial.print("Signal:");
@@ -76,17 +97,9 @@ void loop(){
 	if (QS == true){     //  A Heartbeat Was Found
 		// BPM and IBI have been Determined
 		// Quantified Self "QS" true when arduino finds a heartbeat
-
-		/*
-		#########################################
-		Code to post heart values to the cloud
-				#########################################
-		*/
-		//heartbeat = 1;
+    x=0;                              //Reset the heart beat counter
 		Particle.publish("heartpulseYES","yes");
 		digitalWrite(blinkPin,HIGH);     // Blink LED, we got a beat.
-		fadeRate = 255;         // Makes the LED Fade Effect Happen
-		// Set 'fadeRate' Variable to 255 to fade LED with pulse
 		serialOutputWhenBeatHappens();   // A Beat Happened, Output that to serial.
 		QS = false;                      // reset the Quantified Self flag for next time
 	}
@@ -96,14 +109,23 @@ void loop(){
 		//Particle.publish("heartpulseYES","no");
 	}
 	ledFadeToBeat();                      // Makes the LED Fade Effect Happen
-  delay(1000);                             //  take a break
+
+	if(client.connected()){ 					//If a client (audience) is connected to sever (dancer)
+		//Code to Write to clinets
+		if (QS == true){
+		  //sprintf(outData,"%c","buzz");
+			//out(outData);							//out function writes to cliets
+      server.write("beat");
+      server.write("\n");
+      client.flush();								  //flush the remaining bytes that werent read (the carriage return)
+		}
+	}
+	else {
+		client=server.available();		//if no clients are connected, then search for more connections
+	}
+  //delay(1000);                             //  take a break
 }
 
-//////////
-/////////  All Serial Handling Code,
-/////////  It's Changeable with the 'serialVisual' variable
-/////////  Set it to 'true' or 'false' when it's declared at start of code.
-/////////
 
 void serialOutput(){   // Decide How To Output Serial.
 	if (serialVisual == true){
@@ -113,37 +135,42 @@ void serialOutput(){   // Decide How To Output Serial.
 	}
 }
 
-
 //  Decides How To OutPut BPM and IBI Data
 void serialOutputWhenBeatHappens(){
 	if (serialVisual == true){            //  Code to Make the Serial Monitor Visualizer Work
 		Serial.print("*** Heart-Beat Happened *** ");  //ASCII Art Madness
 		Serial.print("BPM: ");
 		Serial.print(BPM);
-		Serial.print("  ");
+		Serial.println("  ");
 	} else{
 		sendDataToSerial('B',BPM);   // send heart rate with a 'B' prefix
 		sendDataToSerial('Q',IBI);   // send time between beats with a 'Q' prefix
 	}
 }
 
-
-
 //  Sends Data to Pulse Sensor Processing App, Native Mac App, or Third-party Serial Readers.
 void sendDataToSerial(char symbol, int data ){
 	Serial.print(symbol);
-
+  Serial.print(":");
 	Serial.println(data);
 }
 
-
+//Maps the analog vib values based on cosine curve
 void ledFadeToBeat(){
-	fadeRate -= 90;                         //  set LED fade value
-	fadeRate = constrain(fadeRate,40,255);   //  keep LED fade value from going into negative numbers!
-	analogWrite(fadePin,fadeRate);          //  fade LED
-  Serial.println(fadeRate);
+	double y=cos(x)*255;
+  Serial.println(x);
+  int z = (int) y;
+  analogWrite(fadePin,z);
+  if (x > (1.57)) {
+    z=0;
+    x=1.57;
+  }
+  else {
+    x=x+fadeRate;
+  }
+  Serial.println(z);
+  delay(20);
 }
-
 
 //  Code to Make the Serial Monitor Visualizer Work
 void arduinoSerialMonitorVisual(char symbol, int data ){
